@@ -382,13 +382,12 @@ private:
         bool atNodeLevel = false;
 
         // Go through the parts of the path to find the whole
-        while (pDataPathPos < dataPath + strlen(dataPath)) {
+        while (pDataPathPos <= dataPath + strlen(dataPath)) {
             // Get the next part of the path
             const char* slashPos = strstr(pDataPathPos, "/");
-            // Log.trace("SlashPos %d, %d", slashPos, slashPos-pDataPathPos);
             if (slashPos == NULL) {
                 safeStringCopy(srchKey, pDataPathPos, MAX_SRCH_KEY_LEN);
-                pDataPathPos += strlen(pDataPathPos);
+                pDataPathPos += strlen(pDataPathPos) + 1;
                 atNodeLevel = true;
             }
             else if (slashPos - pDataPathPos >= MAX_SRCH_KEY_LEN) {
@@ -399,6 +398,7 @@ private:
                 safeStringCopy(srchKey, pDataPathPos, slashPos - pDataPathPos);
                 pDataPathPos = slashPos + 1;
             }
+            // Log.trace("SlashPos %ld, %ld, srchKey <%s>", slashPos, slashPos-pDataPathPos, srchKey);
 
             // See if search key contains an array reference
             bool arrayElementReqd = false;
@@ -426,11 +426,12 @@ private:
                 // just an array element match (with an empty key)
                 jsmnrtok_t* pTok = tokens + tokIdx;
                 bool keyMatchFound = false;
+                // Log.trace("Token type %d", pTok->type);
                 if ((pTok->type == JSMNR_STRING) && ((int)strlen(srchKey) == pTok->end - pTok->start) && (strncmp(jsonOriginal + pTok->start, srchKey, pTok->end - pTok->start) == 0)) {
                     keyMatchFound = true;
                     tokIdx += 1;
                 }
-                else if ((pTok->type == JSMNR_ARRAY) && ((int)strlen(srchKey) == 0) && (arrayElementReqd)) {
+                else if (((pTok->type == JSMNR_ARRAY) || (pTok->type == JSMNR_OBJECT)) && ((int)strlen(srchKey) == 0)) {
                     keyMatchFound = true;
                 }
 
@@ -441,8 +442,7 @@ private:
                     if (arrayElementReqd) {
                         if (tokens[tokIdx].type == JSMNR_ARRAY) {
                             int newTokIdx = findObjectEnd(jsonOriginal, tokens, numTokens, tokIdx + 1, reqdArrayIdx, false);
-                            Log.trace("TokIdxArray inIdx %d, reqdArrayIdx %d, outTokIdx %d",
-                                tokIdx, reqdArrayIdx, newTokIdx);
+//                            Log.trace("TokIdxArray inIdx %d, reqdArrayIdx %d, outTokIdx %d", tokIdx, reqdArrayIdx, newTokIdx);
                             tokIdx = newTokIdx;
                         }
                         else {

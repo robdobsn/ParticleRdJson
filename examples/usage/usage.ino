@@ -6,6 +6,8 @@
 SYSTEM_MODE(AUTOMATIC);
 SYSTEM_THREAD(ENABLED);
 
+SerialLogHandler logHandler(LOG_LEVEL_TRACE);
+
 void setup() {
 
     Serial.begin(115200);
@@ -36,6 +38,18 @@ void setup() {
     // Extracting an element within a sub-object - use / separator like XPATH - also not that string will get any kind of object
     String subObjStr = RdJson::getString("b/c", "", jsonStr.c_str());
     Serial.printlnf("Sub-object string %s", subObjStr.c_str());
+
+    // A JSON string that is just an array
+    String jsonStr2 = "[0,1,2,{\"a\":1},4]";
+
+    // Entire array
+    String arrayJson2 = RdJson::getString("", "", isValid, objType, objSize, jsonStr2.c_str());
+    Serial.printlnf("Array %s valid %d, type %s, size %d", arrayJson2.c_str(), isValid, RdJson::getObjTypeStr(objType), objSize);
+
+    // Element of array - that is an object
+    String arrayJson3 = RdJson::getString("[3]", "", isValid, objType, objSize, jsonStr2.c_str());
+    Serial.printlnf("Array %s valid %d, type %s, size %d", arrayJson3.c_str(), isValid, RdJson::getObjTypeStr(objType), objSize);
+
 }
 
 void loop() {
