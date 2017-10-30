@@ -13,38 +13,40 @@
 //#define RDJSON_RECREATE_JSON 1
 
 class RdJson {
-private:
-    // Data is stored in a single string as JSON
-    char* _pDataStrJSON;
-
 public:
-    RdJson()
+    // Get location of element in JSON string
+    static bool getElement(const char* dataPath,
+        int& startPos, int& strLen,
+        jsmnrtype_t& objType, int& objSize,
+        const char* pSourceStr)
     {
-        _pDataStrJSON = NULL;
-    }
+        // Check for null
+        if (!pSourceStr)
+            return false;
 
-    ~RdJson()
-    {
-        delete[] _pDataStrJSON;
-    }
+        // Parse json into tokens
+        int numTokens = 0;
+        jsmnrtok_t* pTokens = parseJson(pSourceStr, numTokens);
+        if (pTokens == NULL) {
+            return false;
+        }
 
-    // Get config data string
-    const char* getJsonStr()
-    {
-        if (!_pDataStrJSON)
-            return "";
-        return _pDataStrJSON;
-    }
+        // Find token
+        int startTokenIdx, endTokenIdx;
+        bool isValid = getTokenByDataPath(pSourceStr, dataPath,
+            pTokens, numTokens, startTokenIdx, endTokenIdx);
+        if (!isValid) {
+            delete[] pTokens;
+            return false;
+        }
 
-    // Set the configuration data directly
-    void setJsonStr(const char* configJSONStr)
-    {
-        // Simply make a copy of the config string
-        delete[] _pDataStrJSON;
-        int stringLength = safeStringLen(configJSONStr, true);
-        _pDataStrJSON = new char[stringLength + 1];
-        safeStringCopy(_pDataStrJSON, configJSONStr,
-            stringLength, true);
+        // Extract information on element
+        objType = pTokens[startTokenIdx].type;
+        objSize = pTokens[startTokenIdx].size;
+        startPos = pTokens[startTokenIdx].start;
+        strLen = pTokens[startTokenIdx].end-startPos;
+        delete [] pTokens;
+        return true;
     }
 
     // Get a string from the JSON
@@ -53,54 +55,26 @@ public:
         jsmnrtype_t& objType, int& objSize,
         const char* pSourceStr)
     {
-        // Check for null
-        if (!pSourceStr)
+        // Find the element in the JSON
+        int startPos = 0, strLen = 0;
+        isValid = getElement(dataPath, startPos, strLen, objType, objSize, pSourceStr);
+        if (!isValid)
             return defaultValue;
 
-        // Parse json into tokens
-        int numTokens = 0;
-        jsmnrtok_t* pTokens = parseJson(pSourceStr, numTokens);
-        if (pTokens == NULL) {
-            // Parse failed
-            JSMNR_logLongStr("Failed to parse JSON", pSourceStr);
-            return defaultValue;
-        }
-
-        // Find token
-        int startTokenIdx, endTokenIdx;
-        isValid = getTokenByDataPath(pSourceStr, dataPath,
-            pTokens, numTokens, startTokenIdx, endTokenIdx);
-        if (!isValid) {
-            delete[] pTokens;
-            return defaultValue;
-        }
-
-        // Extract as a string
-        objType = pTokens[startTokenIdx].type;
-        objSize = pTokens[startTokenIdx].size;
+        // Extract string
         String outStr;
-        if (objType == JSMNR_STRING || objType == JSMNR_PRIMITIVE) {
-            char* pStr = safeStringDup(pSourceStr + pTokens[startTokenIdx].start,
-                pTokens[startTokenIdx].end - pTokens[startTokenIdx].start,
-                false);
-            outStr = pStr;
-            delete[] pStr;
-            objSize = outStr.length();
-        }
-        else {
-            //recreateJson(pSourceStr, pTokens + startTokenIdx, objSize, 0, outStr);
-            char* pStr = safeStringDup(pSourceStr + pTokens[startTokenIdx].start,
-                pTokens[startTokenIdx].end - pTokens[startTokenIdx].start,
-                true);
-            outStr = pStr;
-            delete[] pStr;
-        }
+        char* pStr = safeStringDup(pSourceStr + startPos, strLen,
+                    !(objType == JSMNR_STRING || objType == JSMNR_PRIMITIVE));
+        outStr = pStr;
+        delete[] pStr;
 
-        // Tidy up
-        delete[] pTokens;
+        // If the underlying object is a string or primitive value return size as length of string
+        if (objType == JSMNR_STRING || objType == JSMNR_PRIMITIVE)
+            objSize = outStr.length();
         return outStr;
     }
 
+    // Alternate form of getString with fewer parameters
     static String getString(const char* dataPath, const char* defaultValue,
         const char* pSourceStr, bool& isValid)
     {
@@ -110,6 +84,7 @@ public:
             pSourceStr);
     }
 
+    // Alternate form of getString with fewer parameters
     static String getString(const char* dataPath, const char* defaultValue,
         const char* pSourceStr)
     {
@@ -120,41 +95,18 @@ public:
             pSourceStr);
     }
 
-    // Get a string from the JSON
-    String getString(const char* dataPath,
-        const char* defaultValue, bool& isValid,
-        jsmnrtype_t& objType, int& objSize)
-    {
-        return getString(dataPath, defaultValue, isValid, objType, objSize,
-            _pDataStrJSON);
-    }
-
     static double getDouble(const char* dataPath,
         double defaultValue, bool& isValid,
         const char* pSourceStr)
     {
-        // Check for null
-        if (!pSourceStr)
+        // Find the element in the JSON
+        int startPos = 0, strLen = 0;
+        jsmnrtype_t objType = JSMNR_UNDEFINED;
+        int objSize = 0;
+        isValid = getElement(dataPath, startPos, strLen, objType, objSize, pSourceStr);
+        if (!isValid)
             return defaultValue;
-
-        // Parse json into tokens
-        int numTokens = 0;
-        jsmnrtok_t* pTokens = parseJson(pSourceStr, numTokens);
-        if (pTokens == NULL)
-            return defaultValue;
-
-        // Find token
-        int startTokenIdx, endTokenIdx;
-        isValid = getTokenByDataPath(pSourceStr, dataPath,
-            pTokens, numTokens, startTokenIdx, endTokenIdx);
-        if (!isValid) {
-            delete[] pTokens;
-            return defaultValue;
-        }
-
-        // Tidy up
-        delete[] pTokens;
-        return strtod(pSourceStr + pTokens[startTokenIdx].start, NULL);
+        return strtod(pSourceStr + startPos, NULL);
     }
 
     static double getDouble(const char* dataPath, double defaultValue,
@@ -164,50 +116,24 @@ public:
         return getDouble(dataPath, defaultValue, isValid, pSourceStr);
     }
 
-    double getDouble(const char* dataPath, double defaultValue)
-    {
-        bool isValid = false;
-        return getDouble(dataPath, defaultValue, isValid, _pDataStrJSON);
-    }
-
     static long getLong(const char* dataPath,
         long defaultValue, bool& isValid,
         const char* pSourceStr)
     {
-        // Check for null
-        if (!pSourceStr)
+        // Find the element in the JSON
+        int startPos = 0, strLen = 0;
+        jsmnrtype_t objType = JSMNR_UNDEFINED;
+        int objSize = 0;
+        isValid = getElement(dataPath, startPos, strLen, objType, objSize, pSourceStr);
+        if (!isValid)
             return defaultValue;
-
-        // Parse json into tokens
-        int numTokens = 0;
-        jsmnrtok_t* pTokens = parseJson(pSourceStr, numTokens);
-        if (pTokens == NULL)
-            return defaultValue;
-
-        // Find token
-        int startTokenIdx, endTokenIdx;
-        isValid = getTokenByDataPath(pSourceStr, dataPath,
-            pTokens, numTokens, startTokenIdx, endTokenIdx);
-        if (!isValid) {
-            delete[] pTokens;
-            return defaultValue;
-        }
-
-        // Tidy up
-        delete[] pTokens;
-        return strtol(pSourceStr + pTokens[startTokenIdx].start, NULL, 10);
+        return strtol(pSourceStr + startPos, NULL, 10);
     }
 
     static long getLong(const char* dataPath, long defaultValue, const char* pSourceStr)
     {
         bool isValid = false;
         return getLong(dataPath, defaultValue, isValid, pSourceStr);
-    }
-
-    long getLong(const char* dataPath, long defaultValue)
-    {
-        bool isValid = false;
-        return getLong(dataPath, defaultValue, isValid, _pDataStrJSON);
     }
 
     static const char* getObjTypeStr(jsmnrtype_t type)

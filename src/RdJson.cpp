@@ -3,6 +3,9 @@
 
 #include "RdJson.h"
 
+// Note that the code in this file is not the main body of code (which is
+// in the header)
+
 #ifdef RDJSON_RECREATE_JSON
 static int RdJson::recreateJson(const char* js, jsmnrtok_t* t,
         size_t count, int indent, String& outStr)

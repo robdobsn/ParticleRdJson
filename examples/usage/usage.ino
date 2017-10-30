@@ -14,7 +14,7 @@ void setup() {
     delay(5000);
     Serial.println("Example usage of RdJson library");
 
-    // Test JSON
+    // A JSON string that is an object
     String jsonStr = "{\"maxSpeed\":12.2, \"message\":\"This is a test\", \"a\":[0,1,2,3], \"b\":{\"c\":42} }";
 
     // Double
@@ -39,7 +39,7 @@ void setup() {
     String subObjStr = RdJson::getString("b/c", "", jsonStr.c_str());
     Serial.printlnf("Sub-object string %s", subObjStr.c_str());
 
-    // A JSON string that is just an array
+    // A JSON string that is an array
     String jsonStr2 = "[0,1,2,{\"a\":1},4]";
 
     // Entire array
@@ -47,9 +47,13 @@ void setup() {
     Serial.printlnf("Array %s valid %d, type %s, size %d", arrayJson2.c_str(), isValid, RdJson::getObjTypeStr(objType), objSize);
 
     // Element of array - that is an object
-    String arrayJson3 = RdJson::getString("[3]", "", isValid, objType, objSize, jsonStr2.c_str());
-    Serial.printlnf("Array %s valid %d, type %s, size %d", arrayJson3.c_str(), isValid, RdJson::getObjTypeStr(objType), objSize);
+    String objJson = RdJson::getString("[3]", "", isValid, objType, objSize, jsonStr2.c_str());
+    Serial.printlnf("Object %s valid %d, type %s, size %d", objJson.c_str(), isValid, RdJson::getObjTypeStr(objType), objSize);
 
+    // Get element information
+    int startPos = 0, strLen = 0;
+    isValid = RdJson::getElement("[3]", startPos, strLen, objType, objSize, jsonStr2.c_str());
+    Serial.printlnf("Element info valid %d, type %s, size %d, startPos %d, strLen %d", isValid, RdJson::getObjTypeStr(objType), objSize, startPos, strLen);
 }
 
 void loop() {
